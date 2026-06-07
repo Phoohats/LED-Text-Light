@@ -126,6 +126,18 @@ body.showing .editor { display: none; }
 .display__bar button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 12px 16px; font: inherit; cursor: pointer; }
 .display__bar button[data-a="exit"] { background: var(--accent-2); color: #fff; border-color: var(--accent-2); font-weight: 700; }
 
+/* ---------- iOS rotate hint (portrait during a show) ---------- */
+.rotate-hint {
+  position: fixed; inset: 0; z-index: 60; display: none; place-items: center;
+  background: rgba(0,0,0,.93); color: var(--text); text-align: center; padding: 24px;
+  font-size: 22px;
+}
+.rotate-hint--show { display: grid; }
+.rotate-hint__t { margin-top: 10px; font-weight: 700; }
+.rotate-hint small { display: block; margin-top: 8px; color: var(--muted); font-size: 14px; }
+/* Tablets/desktop have room in either orientation — don't nag. */
+@media (min-width: 820px) { .rotate-hint { display: none !important; } }
+
 @media (prefers-reduced-motion: reduce) {
   /* Reduce chrome motion only; the sign animation is the product's purpose. */
   .display__bar { transition: none; }

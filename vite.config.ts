@@ -26,8 +26,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,woff,woff2}"],
-        // ADR-0002 pitfall: cache Google Fonts at runtime so the PWA works offline
+        // Keep the heavy Firebase chunk OUT of the install-time precache; it is
+        // dynamically imported only when configured, so cache it on first use.
+        globIgnores: ["**/firestorePresetStore-*.js"],
         runtimeCaching: [
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.includes("firestorePresetStore"),
+            handler: "CacheFirst",
+            options: { cacheName: "firebase-chunk", expiration: { maxEntries: 4 } }
+          },
+          // ADR-0002 pitfall: cache Google Fonts at runtime so the PWA works offline
           {
             urlPattern: ({ url }) => url.origin === "https://fonts.googleapis.com",
             handler: "StaleWhileRevalidate",

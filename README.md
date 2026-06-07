@@ -37,7 +37,16 @@ src/
 |---|---|---|
 | 0 Scaffold | ✅ | Vite + TS + PWA |
 | 1 Single Sign | ✅ | editor + จอเต็ม + preset (local) + offline |
-| 2 Cloud presets | ⬜ | Firebase Hosting + Firestore + Anonymous Auth |
+| 2 Cloud presets | 🔶 | Firestore + Anonymous Auth + Hosting config **(infra พร้อม — รอใส่ `.env` + deploy)** |
 | 3 Sync broadcast | ⬜ | Show + รหัส/QR/ลิงก์ + clock-sync |
+
+## Firebase (Phase 2)
+1. คัดลอก `.env.example` → `.env` แล้วใส่ค่าจาก Firebase Console (Project settings → Your apps → Web → SDK config)
+2. Firebase Console → Authentication → เปิด provider **Anonymous**
+3. `npm i -g firebase-tools && firebase login`
+4. `npm run build && firebase deploy` (hosting + firestore rules)
+
+> ไม่มี `.env` → แอปทำงาน Phase 1 offline (localStorage) อัตโนมัติ ไม่พัง
+> ⚠️ presets ผูกกับ anonymous uid = **ต่อเครื่อง** ยังไม่ sync ข้ามเครื่อง (ต้อง sign-in จริง — อนาคต)
 
 ดูบริบทโดเมนที่ [`CONTEXT.md`](./CONTEXT.md) และการตัดสินใจที่ [`docs/adr/`](./docs/adr/)
