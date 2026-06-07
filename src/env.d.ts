@@ -12,3 +12,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module "nosleep.js" {
+  export default class NoSleep {
+    enable(): void;
+    disable(): void;
+  }
+}

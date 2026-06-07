@@ -8,8 +8,8 @@ import { hasFirebaseConfig } from "../infra/firebaseConfig";
 
 const FIREBASE_INIT_TIMEOUT_MS = 5000;
 
-export async function makePresetStore(): Promise<PresetStore> {
-  if (hasFirebaseConfig()) {
+export async function makePresetStore(configured: boolean = hasFirebaseConfig()): Promise<PresetStore> {
+  if (configured) {
     try {
       const { FirestorePresetStore } = await import("../infra/firestorePresetStore");
       return await Promise.race([
