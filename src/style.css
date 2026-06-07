@@ -151,6 +151,14 @@ body.showing .host { display: none; } /* hide while a fullscreen sign is up */
   border-radius: 8px; padding: 8px; font: 12px/1.4 "JetBrains Mono", Consolas, monospace; }
 .host__hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
 
+/* ---------- Tap-to-start gate (keeps wake-lock inside a user gesture) ---------- */
+.tapgate { display: none; position: fixed; inset: 0; z-index: 80; place-items: center;
+  background: rgba(0,0,0,.93); text-align: center; padding: 24px; }
+.tapgate--show { display: grid; }
+.tapgate__btn { font-size: 22px; padding: 20px 32px; }
+.tapgate__sub { color: var(--muted); margin-top: 14px; font-size: 14px;
+  font-family: "Chakra Petch", monospace; letter-spacing: 1px; }
+
 /* ---------- iOS rotate hint (portrait during a show) ---------- */
 .rotate-hint {
   position: fixed; inset: 0; z-index: 60; display: none; place-items: center;

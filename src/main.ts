@@ -54,6 +54,26 @@ async function main(): Promise<void> {
   });
   document.body.appendChild(hostView.el);
 
+  // Tap gate — the wake-lock enable must run inside a user gesture (iOS). Joining
+  // via a scanned QR / deep link has no prior tap, and even the manual join loses
+  // the gesture across the prompt + awaits, so we always gate viewer playback
+  // behind one explicit tap.
+  const gate = document.createElement("div");
+  gate.className = "tapgate";
+  gate.innerHTML = `<button type="button" class="btn btn--primary tapgate__btn">▶ แตะเพื่อเริ่มโชว์</button><div class="tapgate__sub"></div>`;
+  document.body.appendChild(gate);
+  const gateBtn = gate.querySelector(".tapgate__btn") as HTMLButtonElement;
+  let gateAction: (() => void) | null = null;
+  gateBtn.addEventListener("click", () => {
+    gate.classList.remove("tapgate--show");
+    gateAction?.();
+  });
+  const showTapGate = (sub: string, action: () => void): void => {
+    (gate.querySelector(".tapgate__sub") as HTMLElement).textContent = sub;
+    gateAction = action;
+    gate.classList.add("tapgate--show");
+  };
+
   async function joinAsViewer(code: string, wall: WallInfo | null = null): Promise<void> {
     if (!hasFirebaseConfig()) {
       window.alert("โหมดเข้าร่วมต้องตั้งค่า Firebase ก่อน");
@@ -74,11 +94,28 @@ async function main(): Promise<void> {
     }
     const s = session;
     viewerSession = s;
-    document.body.classList.add("showing");
-    display.setWall(wall); // video-wall tile, or null for a plain mirror
-    const waiting = wall ? `จอ ${wall.index}/${wall.count} • รอป้าย…` : "รอป้ายจากคนคุม…";
-    display.show(createSign(waiting, { effect: "static", color: "#00e5ff" }));
-    s.onSign((sign, startedAtMs) => display.setSign(sign, { startedAtMs, clockOffsetMs: s.clockOffsetMs }));
+
+    let pending: { sign: Sign; startedAtMs: number } | null = null;
+    let started = false;
+    s.onSign((sign, startedAtMs) => {
+      pending = { sign, startedAtMs };
+      if (started) display.setSign(sign, { startedAtMs, clockOffsetMs: s.clockOffsetMs });
+    });
+
+    showTapGate(wall ? `จอ ${wall.index}/${wall.count} • รหัส ${code}` : `รหัส ${code}`, () => {
+      started = true;
+      document.body.classList.add("showing");
+      display.setWall(wall);
+      if (pending) {
+        display.show(pending.sign, { startedAtMs: pending.startedAtMs, clockOffsetMs: s.clockOffsetMs });
+      } else {
+        display.show(createSign("รอป้ายจากคนคุม…", { effect: "static", color: "#00e5ff" }));
+      }
+      void document.documentElement.requestFullscreen?.().catch(() => {});
+      void (screen.orientation as unknown as { lock?: (o: string) => Promise<void> })
+        ?.lock?.("landscape")
+        .catch(() => {});
+    });
   }
 
   editor = new EditorView(

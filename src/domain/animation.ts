@@ -18,6 +18,18 @@ export function scrollDurationMs(textWidth: number, containerWidth: number, spee
 }
 
 /**
+ * Device-INDEPENDENT loop period (ms) for synced *mirror* playback. Based on the
+ * message length + speed (a chars/sec feel), NOT screen pixels — so a PC and an
+ * iPad of different sizes stay phase-aligned (bigger text just moves faster in px
+ * to keep the same reading pace). The video wall keeps geometry-based timing
+ * because its tiles are identical devices.
+ */
+export function syncedPeriodMs(charCount: number, speed: number): number {
+  const charsPerSec = Math.max(1, speed) * 1.2; // speed 1..10 → 1.2..12 chars/s
+  return (Math.max(1, charCount) / charsPerSec) * 1000;
+}
+
+/**
  * translateX (px) for a given elapsed time, looping forever.
  * rtl: starts just off the right edge, moves to just off the left.
  */
@@ -26,9 +38,10 @@ export function scrollX(
   textWidth: number,
   containerWidth: number,
   speed: number,
-  direction: Direction
+  direction: Direction,
+  periodMs?: number // override the loop period (synced mirror passes a device-independent one)
 ): number {
-  const durationMs = scrollDurationMs(textWidth, containerWidth, speed);
+  const durationMs = periodMs ?? scrollDurationMs(textWidth, containerWidth, speed);
   if (durationMs <= 0) return containerWidth;
   const dist = travelDistance(textWidth, containerWidth);
   const progress = (((elapsedMs % durationMs) + durationMs) % durationMs) / durationMs;

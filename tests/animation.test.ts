@@ -7,6 +7,7 @@ import {
   travelDistance,
   fitFontSize,
   wallTranslateX,
+  syncedPeriodMs,
 } from "../src/domain/animation";
 
 describe("animation", () => {
@@ -67,6 +68,22 @@ describe("animation", () => {
     const s1 = wallTranslateX(t, tw, W, 1, 3, 5, "rtl");
     const s2 = wallTranslateX(t, tw, W, 2, 3, 5, "rtl");
     expect(s1 - s2).toBeCloseTo(W); // screen 2 shows the strip shifted left by W
+  });
+
+  it("syncedPeriodMs is device-independent: faster speed → shorter period", () => {
+    expect(syncedPeriodMs(20, 8)).toBeLessThan(syncedPeriodMs(20, 2));
+    expect(syncedPeriodMs(40, 5)).toBeCloseTo(2 * syncedPeriodMs(20, 5)); // scales with length
+  });
+
+  it("scrollX honors an explicit periodMs (so different screens share a phase)", () => {
+    const p = syncedPeriodMs(10, 5);
+    // same periodMs + same elapsed → same progress on two different geometries
+    const a = scrollX(p / 2, 800, 1000, 5, "rtl", p); // progress 0.5 → containerW - 0.5*(800+1000)
+    expect(a).toBeCloseTo(1000 - 0.5 * 1800);
+    const b = scrollX(p / 2, 400, 600, 5, "rtl", p); // progress 0.5 → containerW - 0.5*(400+600)
+    expect(b).toBeCloseTo(600 - 0.5 * 1000);
+    // loop check: at one full period it returns to the start position
+    expect(scrollX(p, 800, 1000, 5, "rtl", p)).toBeCloseTo(scrollX(0, 800, 1000, 5, "rtl", p));
   });
 
   it("wallTranslateX: bezel widens the per-screen offset", () => {
