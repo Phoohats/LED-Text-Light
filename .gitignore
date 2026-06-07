@@ -1,0 +1,12 @@
+node_modules
+dist
+dev-dist
+*.local
+.DS_Store
+.firebase
+.env
+.env.local
+
+# P-report artifacts (ephemeral — regenerable, may contain internal detail)
+p-report-*.html
+docs/p-report-*.html
