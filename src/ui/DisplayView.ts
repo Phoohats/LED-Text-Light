@@ -1,7 +1,7 @@
 // Fullscreen marquee. Drives the animation via the pure domain math (scrollX),
 // so Phase 3 sync just feeds a synced elapsed time instead of local elapsed.
 import type { Sign } from "../domain/sign";
-import { scrollX, fitFontSize, wallTranslateX, syncedPeriodMs } from "../domain/animation";
+import { scrollX, fitFontSize, wallTranslateX, mirrorScrollX } from "../domain/animation";
 import { fontStack } from "../config/fonts";
 import { requestWakeLock, releaseWakeLock } from "./wakeLock";
 
@@ -147,13 +147,14 @@ export class DisplayView {
         const containerW = this.el.clientWidth;
         const textW = this.textEl.scrollWidth;
         const st = sign.style;
-        // Mirror viewers (synced, not wall) use a device-independent period so a
-        // PC and an iPad scroll at the same reading pace despite different sizes.
-        const mirrorPeriod =
-          this.sync && !this.wall ? syncedPeriodMs([...sign.message].length, st.speed) : undefined;
+        const isMirror = Boolean(this.sync) && !this.wall;
+        // Mirror viewers (synced, not wall) scroll velocity-based so a PC and an
+        // iPad read at the SAME chars/sec despite different screen sizes.
         const x = this.wall
           ? wallTranslateX(elapsed, textW, containerW, this.wall.index, this.wall.count, st.speed, st.direction, this.wall.bezelPx)
-          : scrollX(elapsed, textW, containerW, st.speed, st.direction, mirrorPeriod);
+          : isMirror
+            ? mirrorScrollX(elapsed, textW, [...sign.message].length, containerW, st.speed, st.direction)
+            : scrollX(elapsed, textW, containerW, st.speed, st.direction);
         this.track.style.transform = `translateX(${x}px)`;
       }
       this.rafId = requestAnimationFrame(loop);

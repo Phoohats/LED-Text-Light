@@ -17,16 +17,35 @@ export function scrollDurationMs(textWidth: number, containerWidth: number, spee
   return (travelDistance(textWidth, containerWidth) / px) * 1000;
 }
 
+/** speed knob (1..10) → characters per second (the device-independent reading pace) */
+export function charsPerSec(speed: number): number {
+  return Math.max(1, speed) * 1.2; // 1.2 .. 12 chars/s
+}
+
 /**
- * Device-INDEPENDENT loop period (ms) for synced *mirror* playback. Based on the
- * message length + speed (a chars/sec feel), NOT screen pixels — so a PC and an
- * iPad of different sizes stay phase-aligned (bigger text just moves faster in px
- * to keep the same reading pace). The video wall keeps geometry-based timing
- * because its tiles are identical devices.
+ * Synced *mirror* scroll position (px), velocity-based so the reading speed is
+ * IDENTICAL across screen sizes. Velocity = charsPerSec × emWidth, so chars/sec
+ * (= velocity / emWidth) is device-independent — a wide PC and a small iPad move
+ * the same number of characters per second. containerWidth only sets the start
+ * offset + the loop wrap (so the glyph fully exits before repeating), never the
+ * speed. The video wall keeps geometry timing (its tiles are identical devices).
  */
-export function syncedPeriodMs(charCount: number, speed: number): number {
-  const charsPerSec = Math.max(1, speed) * 1.2; // speed 1..10 → 1.2..12 chars/s
-  return (Math.max(1, charCount) / charsPerSec) * 1000;
+export function mirrorScrollX(
+  elapsedMs: number,
+  textWidth: number,
+  charCount: number,
+  containerWidth: number,
+  speed: number,
+  direction: Direction,
+  gapChars = 6
+): number {
+  const cc = Math.max(1, charCount);
+  const emWidth = textWidth / cc; // px per character on THIS device
+  if (emWidth <= 0) return containerWidth;
+  const v = charsPerSec(speed) * emWidth; // px/sec (chars/sec is constant across devices)
+  const travel = textWidth + containerWidth + gapChars * emWidth; // ≥ full exit → no visible wrap jump
+  const moved = (((v * elapsedMs) / 1000) % travel + travel) % travel;
+  return direction === "rtl" ? containerWidth - moved : moved - textWidth;
 }
 
 /**
@@ -38,10 +57,9 @@ export function scrollX(
   textWidth: number,
   containerWidth: number,
   speed: number,
-  direction: Direction,
-  periodMs?: number // override the loop period (synced mirror passes a device-independent one)
+  direction: Direction
 ): number {
-  const durationMs = periodMs ?? scrollDurationMs(textWidth, containerWidth, speed);
+  const durationMs = scrollDurationMs(textWidth, containerWidth, speed);
   if (durationMs <= 0) return containerWidth;
   const dist = travelDistance(textWidth, containerWidth);
   const progress = (((elapsedMs % durationMs) + durationMs) % durationMs) / durationMs;

@@ -7,7 +7,8 @@ import {
   travelDistance,
   fitFontSize,
   wallTranslateX,
-  syncedPeriodMs,
+  mirrorScrollX,
+  charsPerSec,
 } from "../src/domain/animation";
 
 describe("animation", () => {
@@ -70,20 +71,22 @@ describe("animation", () => {
     expect(s1 - s2).toBeCloseTo(W); // screen 2 shows the strip shifted left by W
   });
 
-  it("syncedPeriodMs is device-independent: faster speed → shorter period", () => {
-    expect(syncedPeriodMs(20, 8)).toBeLessThan(syncedPeriodMs(20, 2));
-    expect(syncedPeriodMs(40, 5)).toBeCloseTo(2 * syncedPeriodMs(20, 5)); // scales with length
+  it("mirrorScrollX: reading speed (chars/sec) is identical across screen sizes", () => {
+    // Two different devices (different em + different container), same message length.
+    const t = 1000, cc = 10, speed = 5;
+    const pc = mirrorScrollX(t, 2500, cc, 1536, speed, "rtl"); // em=250, wide screen
+    const ipad = mirrorScrollX(t, 2760, cc, 1080, speed, "rtl"); // em=276, narrow screen
+    const charsMovedPC = (1536 - pc) / (2500 / cc);
+    const charsMovedIpad = (1080 - ipad) / (2760 / cc);
+    expect(charsMovedPC).toBeCloseTo(charsMovedIpad); // same chars/sec → same perceived speed
+    expect(charsMovedPC).toBeCloseTo((charsPerSec(speed) * t) / 1000); // == speed*1.2 chars in 1s
   });
 
-  it("scrollX honors an explicit periodMs (so different screens share a phase)", () => {
-    const p = syncedPeriodMs(10, 5);
-    // same periodMs + same elapsed → same progress on two different geometries
-    const a = scrollX(p / 2, 800, 1000, 5, "rtl", p); // progress 0.5 → containerW - 0.5*(800+1000)
-    expect(a).toBeCloseTo(1000 - 0.5 * 1800);
-    const b = scrollX(p / 2, 400, 600, 5, "rtl", p); // progress 0.5 → containerW - 0.5*(400+600)
-    expect(b).toBeCloseTo(600 - 0.5 * 1000);
-    // loop check: at one full period it returns to the start position
-    expect(scrollX(p, 800, 1000, 5, "rtl", p)).toBeCloseTo(scrollX(0, 800, 1000, 5, "rtl", p));
+  it("mirrorScrollX: starts off the right edge and faster speed moves further", () => {
+    expect(mirrorScrollX(0, 2500, 10, 1536, 5, "rtl")).toBeCloseTo(1536);
+    const slow = 1536 - mirrorScrollX(1000, 2500, 10, 1536, 2, "rtl");
+    const fast = 1536 - mirrorScrollX(1000, 2500, 10, 1536, 8, "rtl");
+    expect(fast).toBeGreaterThan(slow);
   });
 
   it("wallTranslateX: bezel widens the per-screen offset", () => {
