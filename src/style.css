@@ -94,6 +94,7 @@ select.input { appearance: none; }
   font-weight: 700; cursor: pointer;
 }
 .btn--primary { background: var(--accent); color: #042027; border-color: var(--accent); }
+.btn--ghost { background: transparent; color: var(--muted); }
 .btn:hover { filter: brightness(1.08); }
 .btn:active { transform: translateY(1px); }
 
@@ -125,6 +126,27 @@ body.showing .editor { display: none; }
 .display--bar-open .display__bar { transform: translateX(-50%) translateY(0); }
 .display__bar button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 12px 16px; font: inherit; cursor: pointer; }
 .display__bar button[data-a="exit"] { background: var(--accent-2); color: #fff; border-color: var(--accent-2); font-weight: 700; }
+
+/* ---------- Host (Controller) panel ---------- */
+.host { display: none; position: fixed; left: 0; right: 0; top: 0; z-index: 70;
+  background: var(--surface); border-bottom: 2px solid var(--accent);
+  box-shadow: 0 10px 34px rgba(0,0,0,.55); padding: 14px 16px; }
+.host--show { display: block; }
+body.showing .host { display: none; } /* hide while a fullscreen sign is up */
+.host__bar { display: flex; align-items: center; gap: 14px; }
+.host__code { font-size: 15px; color: var(--muted); }
+.host__code b { font-size: 26px; color: var(--accent); letter-spacing: 4px; margin-left: 6px;
+  font-family: "Chakra Petch", monospace; }
+.host__viewers { margin-left: auto; color: var(--text); font-weight: 700; }
+.host__x { background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 999px; width: 38px; height: 38px; cursor: pointer; }
+.host__body { display: flex; gap: 16px; margin-top: 12px; align-items: flex-start; flex-wrap: wrap; }
+.host__qr { background: #fff; border-radius: 10px; padding: 6px; width: 160px; height: 160px; }
+.host__side { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+.host__link { display: flex; gap: 8px; }
+.host__linkinput { flex: 1; background: #0b0f14; color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px; font: 12px/1.4 "JetBrains Mono", Consolas, monospace; }
+.host__hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
 
 /* ---------- iOS rotate hint (portrait during a show) ---------- */
 .rotate-hint {

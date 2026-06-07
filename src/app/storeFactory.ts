@@ -2,7 +2,7 @@
 // timeout so a flaky network can't block first paint), else local — always a
 // usable store. Firebase code is dynamically imported so offline-only builds
 // never download it.
-import type { PresetStore } from "../domain/ports";
+import type { PresetStore, ShowChannel } from "../domain/ports";
 import { LocalPresetStore } from "../infra/localPresetStore";
 import { hasFirebaseConfig } from "../infra/firebaseConfig";
 
@@ -23,4 +23,11 @@ export async function makePresetStore(configured: boolean = hasFirebaseConfig())
     }
   }
   return new LocalPresetStore();
+}
+
+/** Broadcast channel (Phase 3). Requires Firebase config; null otherwise. */
+export async function makeShowChannel(): Promise<ShowChannel | null> {
+  if (!hasFirebaseConfig()) return null;
+  const { FirestoreShowChannel } = await import("../infra/firestoreShowChannel");
+  return new FirestoreShowChannel();
 }

@@ -5,11 +5,18 @@ import { scrollX, fitFontSize } from "../domain/animation";
 import { fontStack } from "../config/fonts";
 import { requestWakeLock, releaseWakeLock } from "./wakeLock";
 
+/** Synced playback info for a Viewer mirroring a Controller (Phase 3). */
+export interface SyncInfo {
+  startedAtMs: number; // server time the Controller started this sign
+  clockOffsetMs: number; // serverTime - localTime
+}
+
 export class DisplayView {
   readonly el: HTMLElement;
   private track: HTMLElement;
   private textEl: HTMLElement;
   private sign: Sign | null = null;
+  private sync: SyncInfo | null = null;
   private rafId = 0;
   private startTs = 0;
   private paused = false;
@@ -57,14 +64,20 @@ export class DisplayView {
     this.el.appendChild(bar);
   }
 
-  show(sign: Sign): void {
-    this.sign = { ...sign, style: { ...sign.style } };
+  show(sign: Sign, sync: SyncInfo | null = null): void {
     requestWakeLock(); // sync — must stay inside the user gesture (see wakeLock.ts)
-    this.apply();
+    this.setSign(sign, sync);
     window.addEventListener("resize", this.onResize);
     // web fonts load async; first measure may use a fallback → re-fit when ready
     document.fonts?.ready?.then(() => this.onResize()).catch(() => {});
     this.start();
+  }
+
+  /** Update the shown sign live (Viewer mirror). Does not re-arm wake lock/loop. */
+  setSign(sign: Sign, sync: SyncInfo | null = null): void {
+    this.sign = { ...sign, style: { ...sign.style } };
+    this.sync = sync;
+    this.apply();
   }
 
   private apply(): void {
@@ -107,7 +120,8 @@ export class DisplayView {
     const loop = (ts: number): void => {
       const sign = this.sign;
       if (sign && !this.paused && (sign.style.effect === "scroll" || sign.style.effect === "rainbow")) {
-        const elapsed = ts - this.startTs;
+        // Viewer: derive elapsed from the synced server start so all phones align.
+        const elapsed = this.sync ? Date.now() + this.sync.clockOffsetMs - this.sync.startedAtMs : ts - this.startTs;
         const containerW = this.el.clientWidth;
         const textW = this.textEl.scrollWidth;
         const x = scrollX(elapsed, textW, containerW, sign.style.speed, sign.style.direction);

@@ -7,14 +7,21 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Shows (Phase 3 broadcast, reserved). Anyone may read to mirror; only the
-    // Controller who created it (ownerUid) may push/update/delete. ADR-0004.
+    // Shows (Phase 3 broadcast). Anyone may read to mirror; only the Controller
+    // who created it (ownerUid) may push/update/delete. ADR-0004.
     match /shows/{code} {
       allow read: if true;
       allow create: if request.auth != null
                     && request.resource.data.ownerUid == request.auth.uid;
       allow update, delete: if request.auth != null
                     && resource.data.ownerUid == request.auth.uid;
+
+      // Viewer presence: each viewer writes only their own doc (also used to
+      // probe the server clock). Anyone may read to count viewers.
+      match /viewers/{viewerUid} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == viewerUid;
+      }
     }
 
     // Default deny.

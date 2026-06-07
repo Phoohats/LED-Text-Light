@@ -1,9 +1,14 @@
 import "./style.css";
 import { EditorView } from "./ui/EditorView";
 import { DisplayView } from "./ui/DisplayView";
+import { HostView } from "./ui/HostView";
 import { PresetService } from "./app/presetService";
-import { makePresetStore } from "./app/storeFactory";
+import { makePresetStore, makeShowChannel } from "./app/storeFactory";
 import { initIosHints } from "./ui/iosHints";
+import { hasFirebaseConfig } from "./infra/firebaseConfig";
+import { createSign, type Sign } from "./domain/sign";
+import { normalizeRoomCode } from "./domain/roomCode";
+import type { ShowSession, ViewerSession } from "./domain/ports";
 
 async function main(): Promise<void> {
   const app = document.getElementById("app");
@@ -11,32 +16,100 @@ async function main(): Promise<void> {
 
   initIosHints();
 
-  // Firestore when configured (Phase 2), else local — both behind PresetStore.
   const presets = new PresetService(await makePresetStore());
+
+  let editor: EditorView;
+  let hostSession: ShowSession | null = null;
+  let viewerSession: ViewerSession | null = null;
 
   const display = new DisplayView(() => {
     document.body.classList.remove("showing");
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    if (viewerSession) {
+      void viewerSession.leave();
+      viewerSession = null;
+    }
   });
   document.body.appendChild(display.el);
 
-  const editor = new EditorView(presets, (sign) => {
+  // Show a Sign fullscreen on THIS device (must run synchronously from the tap
+  // so the wake-lock enable stays inside the user gesture — see wakeLock.ts).
+  const startLocal = (sign: Sign): void => {
     document.body.classList.add("showing");
-    // Show FIRST (synchronously) so the wake-lock enable runs inside the user
-    // gesture — iOS rejects it otherwise and the screen sleeps. Fullscreen and
-    // orientation are best-effort and must not be awaited before this.
     display.show(sign);
-    void document.documentElement.requestFullscreen?.().catch(() => {
-      /* fullscreen unsupported on iOS Safari — inline overlay still covers the viewport */
-    });
+    void document.documentElement.requestFullscreen?.().catch(() => {});
     void (screen.orientation as unknown as { lock?: (o: string) => Promise<void> })
       ?.lock?.("landscape")
-      .catch(() => {
-        /* unsupported on iOS Safari — handled by initIosHints() */
-      });
+      .catch(() => {});
+  };
+
+  const hostView = new HostView({
+    onPush: () => void hostSession?.push(editor.getSign()),
+    onShowLocal: () => startLocal(editor.getSign()),
+    onClose: () => {
+      void hostSession?.close();
+      hostSession = null;
+      hostView.hide();
+    },
   });
+  document.body.appendChild(hostView.el);
+
+  async function joinAsViewer(code: string): Promise<void> {
+    if (!hasFirebaseConfig()) {
+      window.alert("โหมดเข้าร่วมต้องตั้งค่า Firebase ก่อน");
+      return;
+    }
+    const ch = await makeShowChannel();
+    if (!ch) return;
+    let session: ViewerSession | null;
+    try {
+      session = await ch.join(code);
+    } catch (e) {
+      window.alert("เข้าร่วมไม่สำเร็จ: " + (e as Error).message);
+      return;
+    }
+    if (!session) {
+      window.alert("ไม่พบโชว์รหัส " + code);
+      return;
+    }
+    const s = session;
+    viewerSession = s;
+    document.body.classList.add("showing");
+    display.show(createSign("รอป้ายจากคนคุม…", { effect: "static", color: "#00e5ff" }));
+    s.onSign((sign, startedAtMs) => display.setSign(sign, { startedAtMs, clockOffsetMs: s.clockOffsetMs }));
+  }
+
+  editor = new EditorView(
+    presets,
+    (sign) => startLocal(sign),
+    async () => {
+      // onHost
+      if (!hasFirebaseConfig()) {
+        window.alert("โหมดออกอากาศต้องตั้งค่า Firebase ก่อน");
+        return;
+      }
+      try {
+        const ch = await makeShowChannel();
+        if (!ch) return;
+        hostSession = await ch.host(editor.getSign());
+        hostView.show(hostSession.code, `${location.origin}/?show=${hostSession.code}`);
+        hostSession.onViewers((n) => hostView.setViewers(n));
+      } catch (e) {
+        window.alert("เริ่มออกอากาศไม่สำเร็จ: " + (e as Error).message);
+      }
+    },
+    () => {
+      // onJoin
+      const code = normalizeRoomCode(window.prompt("กรอกรหัสห้อง:", "") ?? "");
+      if (code) void joinAsViewer(code);
+    }
+  );
   app.appendChild(editor.el);
   editor.init();
+
+  // Deep link: /?show=CODE → auto-join as a Viewer (from a scanned QR / shared link)
+  const linkCode = normalizeRoomCode(new URLSearchParams(location.search).get("show") ?? "");
+  if (linkCode) void joinAsViewer(linkCode);
 }
 
 void main();

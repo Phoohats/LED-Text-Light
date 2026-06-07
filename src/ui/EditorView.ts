@@ -1,6 +1,7 @@
 // Editor screen — live preview + all Sign controls + preset management.
 import type { Sign, SignStyle, Effect } from "../domain/sign";
 import { createSign, DEFAULT_STYLE } from "../domain/sign";
+import { fitFontSize } from "../domain/animation";
 import { FONTS, fontStack } from "../config/fonts";
 import type { PresetService } from "../app/presetService";
 import type { Preset } from "../domain/ports";
@@ -16,16 +17,25 @@ export class EditorView {
   private message = "เป็นกำลังใจให้เสมอ 💙🎤";
   private presetSvc: PresetService;
   private onStart: StartFn;
+  private onHost?: () => void;
+  private onJoin?: () => void;
 
-  constructor(presetSvc: PresetService, onStart: StartFn) {
+  constructor(presetSvc: PresetService, onStart: StartFn, onHost?: () => void, onJoin?: () => void) {
     this.presetSvc = presetSvc;
     this.onStart = onStart;
+    this.onHost = onHost;
+    this.onJoin = onJoin;
     this.el = document.createElement("div");
     this.el.className = "editor";
   }
 
   init(): void {
     this.render();
+  }
+
+  /** The Sign currently composed in the editor (used by the host/show flow). */
+  getSign(): Sign {
+    return this.current();
   }
 
   private current(): Sign {
@@ -74,6 +84,11 @@ export class EditorView {
         <div class="row actions">
           <button type="button" id="start" class="btn btn--primary">▶ เริ่มโชว์ (เต็มจอ)</button>
           <button type="button" id="save" class="btn">💾 บันทึก</button>
+        </div>
+
+        <div class="row actions">
+          <button type="button" id="host" class="btn btn--ghost">📡 ออกอากาศ (คนคุม)</button>
+          <button type="button" id="join" class="btn btn--ghost">📲 เข้าร่วมโชว์</button>
         </div>
 
         <label class="lbl">พรีเซ็ตที่บันทึก</label>
@@ -152,6 +167,8 @@ export class EditorView {
       this.updatePreview();
     });
     this.$("#start").addEventListener("click", () => this.onStart(this.current()));
+    this.$("#host").addEventListener("click", () => this.onHost?.());
+    this.$("#join").addEventListener("click", () => this.onJoin?.());
     this.$("#save").addEventListener("click", async () => {
       const name = window.prompt("ตั้งชื่อพรีเซ็ต:", this.message.slice(0, 24));
       if (name === null) return;
@@ -186,6 +203,14 @@ export class EditorView {
     prev.dataset.effect = this.style.effect;
     t.style.setProperty("--dur", (12 - this.style.speed) * 0.55 + "s");
     t.style.setProperty("--dir", this.style.direction === "rtl" ? "normal" : "reverse");
+    // non-scrolling effects: shrink to fit the preview width (matches fullscreen)
+    if (this.style.effect === "static" || this.style.effect === "blink") {
+      t.style.fontSize = "";
+      const base = parseFloat(getComputedStyle(t).fontSize) || 100;
+      t.style.fontSize = `${fitFontSize(t.scrollWidth, prev.clientWidth, base)}px`;
+    } else {
+      t.style.fontSize = "";
+    }
   }
 
   private async renderPresets(): Promise<void> {

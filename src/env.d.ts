@@ -19,3 +19,13 @@ declare module "nosleep.js" {
     disable(): void;
   }
 }
+
+declare module "qrcode" {
+  export function toCanvas(
+    canvas: HTMLCanvasElement,
+    text: string,
+    opts?: Record<string, unknown>
+  ): Promise<void>;
+  const _default: { toCanvas: typeof toCanvas };
+  export default _default;
+}

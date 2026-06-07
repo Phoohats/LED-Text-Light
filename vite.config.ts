@@ -3,6 +3,20 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // ADR-0001 PWA · ADR-0003 Firebase BaaS (hosting added in Phase 2)
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // Pin all Firebase SDK code into one named chunk so the service worker
+        // can keep it OUT of the install-time precache (it's loaded on demand).
+        manualChunks(id) {
+          if (id.includes("node_modules/firebase") || id.includes("node_modules/@firebase")) {
+            return "firebase";
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
@@ -28,10 +42,10 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,woff,woff2}"],
         // Keep the heavy Firebase chunk OUT of the install-time precache; it is
         // dynamically imported only when configured, so cache it on first use.
-        globIgnores: ["**/firestorePresetStore-*.js"],
+        globIgnores: ["**/firebase-*.js"],
         runtimeCaching: [
           {
-            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.includes("firestorePresetStore"),
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.includes("/firebase-"),
             handler: "CacheFirst",
             options: { cacheName: "firebase-chunk", expiration: { maxEntries: 4 } }
           },
