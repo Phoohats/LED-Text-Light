@@ -38,6 +38,28 @@ export function scrollX(
 }
 
 /**
+ * Video-wall: this screen is tile `index` of `count` placed side by side. The
+ * text scrolls across one virtual strip spanning all screens (+bezel gaps); each
+ * screen renders the same strip windowed at its own offset, so a glyph leaving
+ * screen 1's edge enters screen 2. Pure & testable. (assumes equal screen widths)
+ */
+export function wallTranslateX(
+  elapsedMs: number,
+  textWidth: number,
+  screenWidth: number,
+  index: number, // 1-based
+  count: number,
+  speed: number,
+  direction: Direction,
+  bezelPx = 0
+): number {
+  const unit = screenWidth + bezelPx;
+  const virtualWidth = count * screenWidth + (count - 1) * bezelPx;
+  const virtualX = scrollX(elapsedMs, textWidth, virtualWidth, speed, direction);
+  return virtualX - (index - 1) * unit;
+}
+
+/**
  * Static/blink fit: shrink the font so a non-scrolling message fits the screen
  * width. Width scales linearly with font size, so the ratio is exact. Returns
  * baseSize unchanged when the text already fits (never enlarges). Pure & testable.

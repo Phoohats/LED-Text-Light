@@ -126,6 +126,9 @@ body.showing .editor { display: none; }
 .display--bar-open .display__bar { transform: translateX(-50%) translateY(0); }
 .display__bar button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 12px 16px; font: inherit; cursor: pointer; }
 .display__bar button[data-a="exit"] { background: var(--accent-2); color: #fff; border-color: var(--accent-2); font-weight: 700; }
+/* bezel nudge buttons only matter in video-wall mode */
+.display__bar [data-a^="bezel"] { display: none; }
+.display--wall .display__bar [data-a^="bezel"] { display: inline-block; }
 
 /* ---------- Host (Controller) panel ---------- */
 .host { display: none; position: fixed; left: 0; right: 0; top: 0; z-index: 70;

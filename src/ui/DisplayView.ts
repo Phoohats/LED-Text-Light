@@ -1,7 +1,7 @@
 // Fullscreen marquee. Drives the animation via the pure domain math (scrollX),
 // so Phase 3 sync just feeds a synced elapsed time instead of local elapsed.
 import type { Sign } from "../domain/sign";
-import { scrollX, fitFontSize } from "../domain/animation";
+import { scrollX, fitFontSize, wallTranslateX } from "../domain/animation";
 import { fontStack } from "../config/fonts";
 import { requestWakeLock, releaseWakeLock } from "./wakeLock";
 
@@ -11,12 +11,20 @@ export interface SyncInfo {
   clockOffsetMs: number; // serverTime - localTime
 }
 
+/** Video-wall: this device is tile `index` of `count` in a side-by-side row. */
+export interface WallInfo {
+  index: number; // 1-based
+  count: number;
+  bezelPx: number; // gap between screens to skip across (tunable live)
+}
+
 export class DisplayView {
   readonly el: HTMLElement;
   private track: HTMLElement;
   private textEl: HTMLElement;
   private sign: Sign | null = null;
   private sync: SyncInfo | null = null;
+  private wall: WallInfo | null = null;
   private rafId = 0;
   private startTs = 0;
   private paused = false;
@@ -47,6 +55,8 @@ export class DisplayView {
     const bar = document.createElement("div");
     bar.className = "display__bar";
     bar.innerHTML = `
+      <button data-a="bezel-" aria-label="ลดระยะขอบ">⟵|</button>
+      <button data-a="bezel+" aria-label="เพิ่มระยะขอบ">|⟶</button>
       <button data-a="slower" aria-label="ช้าลง">⏪</button>
       <button data-a="pause" aria-label="พัก">⏸</button>
       <button data-a="faster" aria-label="เร็วขึ้น">⏩</button>
@@ -55,6 +65,8 @@ export class DisplayView {
       const btn = (e.target as HTMLElement).closest("[data-a]") as HTMLElement | null;
       if (!btn) return;
       switch (btn.dataset.a) {
+        case "bezel-": this.nudgeBezel(-8); break;
+        case "bezel+": this.nudgeBezel(8); break;
         case "slower": this.nudgeSpeed(-1); break;
         case "faster": this.nudgeSpeed(1); break;
         case "pause": this.togglePause(); break;
@@ -78,6 +90,16 @@ export class DisplayView {
     this.sign = { ...sign, style: { ...sign.style } };
     this.sync = sync;
     this.apply();
+  }
+
+  /** Enter/leave video-wall mode for this tile. Call before show(). */
+  setWall(wall: WallInfo | null): void {
+    this.wall = wall;
+    this.el.classList.toggle("display--wall", Boolean(wall));
+  }
+
+  private nudgeBezel(delta: number): void {
+    if (this.wall) this.wall.bezelPx = Math.max(0, this.wall.bezelPx + delta);
   }
 
   private apply(): void {
@@ -124,7 +146,10 @@ export class DisplayView {
         const elapsed = this.sync ? Date.now() + this.sync.clockOffsetMs - this.sync.startedAtMs : ts - this.startTs;
         const containerW = this.el.clientWidth;
         const textW = this.textEl.scrollWidth;
-        const x = scrollX(elapsed, textW, containerW, sign.style.speed, sign.style.direction);
+        const st = sign.style;
+        const x = this.wall
+          ? wallTranslateX(elapsed, textW, containerW, this.wall.index, this.wall.count, st.speed, st.direction, this.wall.bezelPx)
+          : scrollX(elapsed, textW, containerW, st.speed, st.direction);
         this.track.style.transform = `translateX(${x}px)`;
       }
       this.rafId = requestAnimationFrame(loop);
@@ -149,6 +174,7 @@ export class DisplayView {
     releaseWakeLock();
     window.removeEventListener("resize", this.onResize);
     this.el.classList.remove("display--bar-open");
+    this.setWall(null);
     this.onExit();
   }
 }

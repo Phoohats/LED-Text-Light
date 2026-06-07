@@ -6,6 +6,7 @@ import {
   syncedElapsed,
   travelDistance,
   fitFontSize,
+  wallTranslateX,
 } from "../src/domain/animation";
 
 describe("animation", () => {
@@ -54,5 +55,24 @@ describe("animation", () => {
   it("fitFontSize is safe on zero measurements", () => {
     expect(fitFontSize(0, 1000, 80)).toBe(80);
     expect(fitFontSize(500, 0, 80)).toBe(80);
+  });
+
+  it("wallTranslateX: a single screen equals the normal scroll", () => {
+    const W = 1000, tw = 600, t = 1234;
+    expect(wallTranslateX(t, tw, W, 1, 1, 5, "rtl")).toBeCloseTo(scrollX(t, tw, W, 5, "rtl"));
+  });
+
+  it("wallTranslateX: adjacent screens are offset by exactly one screen width", () => {
+    const W = 1000, tw = 600, t = 1234;
+    const s1 = wallTranslateX(t, tw, W, 1, 3, 5, "rtl");
+    const s2 = wallTranslateX(t, tw, W, 2, 3, 5, "rtl");
+    expect(s1 - s2).toBeCloseTo(W); // screen 2 shows the strip shifted left by W
+  });
+
+  it("wallTranslateX: bezel widens the per-screen offset", () => {
+    const W = 1000, tw = 600, t = 1234, bezel = 40;
+    const s1 = wallTranslateX(t, tw, W, 1, 3, 5, "rtl", bezel);
+    const s2 = wallTranslateX(t, tw, W, 2, 3, 5, "rtl", bezel);
+    expect(s1 - s2).toBeCloseTo(W + bezel);
   });
 });

@@ -19,12 +19,20 @@ export class EditorView {
   private onStart: StartFn;
   private onHost?: () => void;
   private onJoin?: () => void;
+  private onWall?: () => void;
 
-  constructor(presetSvc: PresetService, onStart: StartFn, onHost?: () => void, onJoin?: () => void) {
+  constructor(
+    presetSvc: PresetService,
+    onStart: StartFn,
+    onHost?: () => void,
+    onJoin?: () => void,
+    onWall?: () => void
+  ) {
     this.presetSvc = presetSvc;
     this.onStart = onStart;
     this.onHost = onHost;
     this.onJoin = onJoin;
+    this.onWall = onWall;
     this.el = document.createElement("div");
     this.el.className = "editor";
   }
@@ -88,7 +96,10 @@ export class EditorView {
 
         <div class="row actions">
           <button type="button" id="host" class="btn btn--ghost">📡 ออกอากาศ (คนคุม)</button>
-          <button type="button" id="join" class="btn btn--ghost">📲 เข้าร่วมโชว์</button>
+          <button type="button" id="join" class="btn btn--ghost">📲 เข้าร่วม (จอเดียว)</button>
+        </div>
+        <div class="row actions">
+          <button type="button" id="wall" class="btn btn--ghost">🧱 ต่อจอ (Video Wall)</button>
         </div>
 
         <label class="lbl">พรีเซ็ตที่บันทึก</label>
@@ -169,6 +180,7 @@ export class EditorView {
     this.$("#start").addEventListener("click", () => this.onStart(this.current()));
     this.$("#host").addEventListener("click", () => this.onHost?.());
     this.$("#join").addEventListener("click", () => this.onJoin?.());
+    this.$("#wall").addEventListener("click", () => this.onWall?.());
     this.$("#save").addEventListener("click", async () => {
       const name = window.prompt("ตั้งชื่อพรีเซ็ต:", this.message.slice(0, 24));
       if (name === null) return;

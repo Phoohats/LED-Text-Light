@@ -1,6 +1,6 @@
 import "./style.css";
 import { EditorView } from "./ui/EditorView";
-import { DisplayView } from "./ui/DisplayView";
+import { DisplayView, type WallInfo } from "./ui/DisplayView";
 import { HostView } from "./ui/HostView";
 import { PresetService } from "./app/presetService";
 import { makePresetStore, makeShowChannel } from "./app/storeFactory";
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   });
   document.body.appendChild(hostView.el);
 
-  async function joinAsViewer(code: string): Promise<void> {
+  async function joinAsViewer(code: string, wall: WallInfo | null = null): Promise<void> {
     if (!hasFirebaseConfig()) {
       window.alert("โหมดเข้าร่วมต้องตั้งค่า Firebase ก่อน");
       return;
@@ -75,7 +75,9 @@ async function main(): Promise<void> {
     const s = session;
     viewerSession = s;
     document.body.classList.add("showing");
-    display.show(createSign("รอป้ายจากคนคุม…", { effect: "static", color: "#00e5ff" }));
+    display.setWall(wall); // video-wall tile, or null for a plain mirror
+    const waiting = wall ? `จอ ${wall.index}/${wall.count} • รอป้าย…` : "รอป้ายจากคนคุม…";
+    display.show(createSign(waiting, { effect: "static", color: "#00e5ff" }));
     s.onSign((sign, startedAtMs) => display.setSign(sign, { startedAtMs, clockOffsetMs: s.clockOffsetMs }));
   }
 
@@ -99,17 +101,39 @@ async function main(): Promise<void> {
       }
     },
     () => {
-      // onJoin
+      // onJoin (plain mirror)
       const code = normalizeRoomCode(window.prompt("กรอกรหัสห้อง:", "") ?? "");
       if (code) void joinAsViewer(code);
+    },
+    () => {
+      // onWall (video-wall tile — this device picks its own slot)
+      const code = normalizeRoomCode(window.prompt("รหัสห้อง:", "") ?? "");
+      if (!code) return;
+      const index = parseInt(window.prompt("เครื่องนี้คือจอที่เท่าไหร่? (1, 2, 3 …)", "1") ?? "", 10);
+      const count = parseInt(window.prompt("ทั้งหมดกี่จอ?", "3") ?? "", 10);
+      if (!Number.isInteger(index) || !Number.isInteger(count) || index < 1 || count < 1 || index > count) {
+        window.alert("เลขจอไม่ถูกต้อง (จอที่ X ต้องไม่เกินจำนวนทั้งหมด)");
+        return;
+      }
+      void joinAsViewer(code, { index, count, bezelPx: 0 });
     }
   );
   app.appendChild(editor.el);
   editor.init();
 
-  // Deep link: /?show=CODE → auto-join as a Viewer (from a scanned QR / shared link)
-  const linkCode = normalizeRoomCode(new URLSearchParams(location.search).get("show") ?? "");
-  if (linkCode) void joinAsViewer(linkCode);
+  // Deep link: /?show=CODE → auto-join as a Viewer (from a scanned QR / shared
+  // link). Optional &i=2&n=3 joins directly as video-wall tile 2 of 3.
+  const params = new URLSearchParams(location.search);
+  const linkCode = normalizeRoomCode(params.get("show") ?? "");
+  if (linkCode) {
+    const i = parseInt(params.get("i") ?? "", 10);
+    const n = parseInt(params.get("n") ?? "", 10);
+    const wall: WallInfo | null =
+      Number.isInteger(i) && Number.isInteger(n) && i >= 1 && n >= 1 && i <= n
+        ? { index: i, count: n, bezelPx: 0 }
+        : null;
+    void joinAsViewer(linkCode, wall);
+  }
 }
 
 void main();
