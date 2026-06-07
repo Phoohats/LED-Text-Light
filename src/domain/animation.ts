@@ -38,6 +38,22 @@ export function scrollX(
 }
 
 /**
+ * Static/blink fit: shrink the font so a non-scrolling message fits the screen
+ * width. Width scales linearly with font size, so the ratio is exact. Returns
+ * baseSize unchanged when the text already fits (never enlarges). Pure & testable.
+ */
+export function fitFontSize(
+  textWidth: number,
+  containerWidth: number,
+  baseSizePx: number,
+  maxFraction = 0.94
+): number {
+  if (textWidth <= 0 || containerWidth <= 0) return baseSizePx;
+  const maxW = containerWidth * maxFraction;
+  return textWidth > maxW ? (baseSizePx * maxW) / textWidth : baseSizePx;
+}
+
+/**
  * Phase 3 sync: a Viewer computes its elapsed time from the Controller's
  * server start timestamp, corrected by the measured clock skew. Keeping this
  * here means the same animation engine drives both single & synced modes.

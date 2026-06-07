@@ -5,6 +5,7 @@ import {
   scrollX,
   syncedElapsed,
   travelDistance,
+  fitFontSize,
 } from "../src/domain/animation";
 
 describe("animation", () => {
@@ -39,5 +40,19 @@ describe("animation", () => {
 
   it("syncedElapsed subtracts start and skew", () => {
     expect(syncedElapsed(5000, 1000, 200)).toBe(3800);
+  });
+
+  it("fitFontSize shrinks text that overflows the width", () => {
+    // base 100px, text 2000px wide in a 1000px container (94% = 940 max)
+    expect(fitFontSize(2000, 1000, 100)).toBeCloseTo((100 * 940) / 2000); // 47
+  });
+
+  it("fitFontSize keeps base size when text already fits", () => {
+    expect(fitFontSize(500, 1000, 100)).toBe(100);
+  });
+
+  it("fitFontSize is safe on zero measurements", () => {
+    expect(fitFontSize(0, 1000, 80)).toBe(80);
+    expect(fitFontSize(500, 0, 80)).toBe(80);
   });
 });

@@ -1,7 +1,7 @@
 // Fullscreen marquee. Drives the animation via the pure domain math (scrollX),
 // so Phase 3 sync just feeds a synced elapsed time instead of local elapsed.
 import type { Sign } from "../domain/sign";
-import { scrollX } from "../domain/animation";
+import { scrollX, fitFontSize } from "../domain/animation";
 import { fontStack } from "../config/fonts";
 import { requestWakeLock, releaseWakeLock } from "./wakeLock";
 
@@ -59,8 +59,11 @@ export class DisplayView {
 
   show(sign: Sign): void {
     this.sign = { ...sign, style: { ...sign.style } };
+    requestWakeLock(); // sync — must stay inside the user gesture (see wakeLock.ts)
     this.apply();
-    void requestWakeLock();
+    window.addEventListener("resize", this.onResize);
+    // web fonts load async; first measure may use a fallback → re-fit when ready
+    document.fonts?.ready?.then(() => this.onResize()).catch(() => {});
     this.start();
   }
 
@@ -78,8 +81,25 @@ export class DisplayView {
       : "none";
     if (s.effect === "blink" || s.effect === "static") {
       this.track.style.transform = "translateX(0)";
+      this.fitStatic();
+    } else {
+      // scroll / rainbow keep the full height-based size and overflow on purpose
+      this.textEl.style.fontSize = "";
     }
   }
+
+  /** Shrink a non-scrolling message so it fits the screen width (ADR: DOM render). */
+  private fitStatic(): void {
+    this.textEl.style.fontSize = ""; // measure at the CSS base size (62vh)
+    const base = parseFloat(getComputedStyle(this.textEl).fontSize) || this.el.clientHeight * 0.62;
+    const size = fitFontSize(this.textEl.scrollWidth, this.el.clientWidth, base);
+    this.textEl.style.fontSize = `${size}px`;
+  }
+
+  private readonly onResize = (): void => {
+    const fx = this.sign?.style.effect;
+    if (fx === "static" || fx === "blink") this.fitStatic();
+  };
 
   private start(): void {
     cancelAnimationFrame(this.rafId);
@@ -112,7 +132,8 @@ export class DisplayView {
   hide(): void {
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
-    void releaseWakeLock();
+    releaseWakeLock();
+    window.removeEventListener("resize", this.onResize);
     this.el.classList.remove("display--bar-open");
     this.onExit();
   }
