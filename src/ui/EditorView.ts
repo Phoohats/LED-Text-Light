@@ -20,19 +20,22 @@ export class EditorView {
   private onHost?: () => void;
   private onJoin?: () => void;
   private onWall?: () => void;
+  private onChange?: () => void;
 
   constructor(
     presetSvc: PresetService,
     onStart: StartFn,
     onHost?: () => void,
     onJoin?: () => void,
-    onWall?: () => void
+    onWall?: () => void,
+    onChange?: () => void // fired on any sign edit — used to live-push while hosting
   ) {
     this.presetSvc = presetSvc;
     this.onStart = onStart;
     this.onHost = onHost;
     this.onJoin = onJoin;
     this.onWall = onWall;
+    this.onChange = onChange;
     this.el = document.createElement("div");
     this.el.className = "editor";
   }
@@ -223,6 +226,7 @@ export class EditorView {
     } else {
       t.style.fontSize = "";
     }
+    this.onChange?.(); // live-push to viewers while hosting (debounced in main)
   }
 
   private async renderPresets(): Promise<void> {

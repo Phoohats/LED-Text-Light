@@ -21,6 +21,7 @@ async function main(): Promise<void> {
   let editor: EditorView;
   let hostSession: ShowSession | null = null;
   let viewerSession: ViewerSession | null = null;
+  let livePushTimer = 0;
 
   const display = new DisplayView(() => {
     document.body.classList.remove("showing");
@@ -153,6 +154,13 @@ async function main(): Promise<void> {
         return;
       }
       void joinAsViewer(code, { index, count, bezelPx: 0 });
+    },
+    () => {
+      // onChange — while hosting, live-push the edited sign to viewers (debounced
+      // so dragging the speed slider doesn't spam Firestore).
+      if (!hostSession) return;
+      clearTimeout(livePushTimer);
+      livePushTimer = window.setTimeout(() => void hostSession?.push(editor.getSign()), 300);
     }
   );
   app.appendChild(editor.el);
