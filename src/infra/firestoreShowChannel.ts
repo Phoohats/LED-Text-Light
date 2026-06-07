@@ -66,17 +66,28 @@ export class FirestoreShowChannel implements ShowChannel {
     const snap = await getDoc(showRef);
     if (!snap.exists()) return null;
 
-    // Presence + clock probe: write our viewer doc, read the resolved server
-    // timestamp, derive offset = serverTime - localTime.
+    // Presence + clock probe. NTP-style: stamp the server time, bracket the
+    // write with local timestamps, and estimate the server instant at the
+    // round-trip midpoint. Take the sample with the lowest RTT over a few tries
+    // (least queuing = most accurate) so tiled wall screens align tightly.
     const viewerRef = doc(db, "shows", code, "viewers", uid);
-    await setDoc(viewerRef, { joinedAt: serverTimestamp(), seenAt: serverTimestamp() });
     let clockOffsetMs = 0;
-    try {
-      const back = await getDoc(viewerRef);
-      const serverMs = (back.get("seenAt") as Timestamp | undefined)?.toMillis();
-      if (serverMs) clockOffsetMs = serverMs - Date.now();
-    } catch {
-      /* offline / denied — fall back to local clock (offset 0) */
+    let bestRtt = Infinity;
+    for (let k = 0; k < 3; k++) {
+      try {
+        const t0 = Date.now();
+        await setDoc(viewerRef, { joinedAt: serverTimestamp(), seenAt: serverTimestamp() });
+        const t1 = Date.now();
+        const back = await getDoc(viewerRef);
+        const serverMs = (back.get("seenAt") as Timestamp | undefined)?.toMillis();
+        const rtt = t1 - t0;
+        if (serverMs && rtt < bestRtt) {
+          bestRtt = rtt;
+          clockOffsetMs = serverMs - (t0 + t1) / 2; // server instant ≈ write midpoint
+        }
+      } catch {
+        break; // offline / denied — keep best so far (or 0)
+      }
     }
 
     return {
